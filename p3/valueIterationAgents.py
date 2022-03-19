@@ -191,13 +191,59 @@ class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
         preds = util.Counter()
         for s in states:
             preds[s] = set()
-            for a in self.mdp.getPossibleActions(s):
-                for ns, prob in self.mdp.getTransitionStatesAndProbs(s, a):
-                    preds[s].add(ns)
-        pq = util.PriorityQueue()
+
         for s in states:
             for a in self.mdp.getPossibleActions(s):
                 for ns, prob in self.mdp.getTransitionStatesAndProbs(s, a):
+                    preds[ns].add(s)
 
-            diff = abs(tmp - self.values[s])
+        pq = util.PriorityQueue()
+        for s in states:
+            qList = []
+            for a in self.mdp.getPossibleActions(s):
+                tmp = 0
+                for ns, prob in self.mdp.getTransitionStatesAndProbs(s, a):
+                    tmp += prob * (self.mdp.getReward(s, a, ns) + self.discount * self.values[ns])
+                qList.append(tmp)
+
+            if qList:
+                maxq = max(qList)
+                diff = abs(maxq - self.values[s])
+                pq.push(s, -diff)
+
+        for i in range(self.iterations):
+            if pq.isEmpty():
+                break
+            s = pq.pop()
+
+            # update
+            qList = []
+            for a in self.mdp.getPossibleActions(s):
+                tmp = 0
+                for ns, prob in self.mdp.getTransitionStatesAndProbs(s, a):
+                    tmp += prob * (self.mdp.getReward(s, a, ns) + self.discount * self.values[ns])
+                qList.append(tmp)
+            if qList:
+                self.values[s] = max(qList)
+
+            for pred in preds[s]:
+                qList = []
+                for a in self.mdp.getPossibleActions(pred):
+                    tmp = 0
+                    for ns, prob in self.mdp.getTransitionStatesAndProbs(pred, a):
+                        tmp += prob * (self.mdp.getReward(pred, a, ns) + self.discount * self.values[ns])
+                    qList.append(tmp)
+
+                if qList:
+                    maxq = max(qList)
+                    diff = abs(maxq - self.values[pred])
+                    if diff > self.theta:
+                        pq.update(pred, -diff)
+                
+
+
+
+
+
+
 
